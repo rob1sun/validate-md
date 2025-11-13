@@ -4,11 +4,8 @@
   <meta charset="UTF-8" />
   <title>SAML ZIP → KV-import</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Enkel inline CSS -->
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -38,18 +35,14 @@
       color: #4b5563;
       font-size: 0.95rem;
     }
-    .field {
-      margin-bottom: 1rem;
-    }
+    .field { margin-bottom: 1rem; }
     label {
       display: block;
       margin-bottom: 0.35rem;
       font-weight: 600;
       font-size: 0.9rem;
     }
-    input[type="file"] {
-      width: 100%;
-    }
+    input[type="file"] { width: 100%; }
     button {
       display: inline-flex;
       align-items: center;
@@ -112,18 +105,10 @@
       display: inline-block;
       margin-right: 0.35rem;
     }
-    .dot-idle {
-      background: #9ca3af;
-    }
-    .dot-processing {
-      background: #f59e0b;
-    }
-    .dot-ready {
-      background: #10b981;
-    }
-    .dot-error {
-      background: #ef4444;
-    }
+    .dot-idle { background: #9ca3af; }
+    .dot-processing { background: #f59e0b; }
+    .dot-ready { background: #10b981; }
+    .dot-error { background: #ef4444; }
     .status-line {
       display: flex;
       align-items: center;
@@ -140,7 +125,6 @@
     }
   </style>
 
-  <!-- JSZip för att läsa ZIP-filen i browsern -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
@@ -148,8 +132,9 @@
     <h1>SAML ZIP → KV-import</h1>
     <p class="description">
       Ladda upp en ZIP-fil med SAML-entiteter. Klienten letar upp
-      <code>shibmd:Scope</code>-element av typen <code>&lt;organisationsnummer&gt;.fedscope.se</code>
-      och skickar unika organisationsnummer till workern, som sparar dem i KV.
+      <code>shibmd:Scope</code>-element (<code>&lt;orgnr&gt;.fedscope.se</code>),
+      samt <code>OrganizationName</code> och <code>OrganizationDisplayName</code>, och skickar
+      data per organisationsnummer till workern som sparar dem i KV.
     </p>
 
     <form id="uploadForm">
@@ -177,30 +162,23 @@
     </div>
   </div>
 
-  <!-- Inline JS -->
   <script>
     (function () {
       var uploadForm = document.getElementById("uploadForm");
       var zipInput = document.getElementById("zipFile");
       var uploadBtn = document.getElementById("uploadBtn");
       var clearBtn = document.getElementById("clearBtn");
-      var statusBox = document.getElementById("statusBox");
       var statusDot = document.getElementById("statusDot");
       var statusText = document.getElementById("statusText");
       var statusDetails = document.getElementById("statusDetails");
 
       function setStatus(mode, text, details) {
-        // mode: idle | processing | ready | error
         statusDot.className = "status-dot";
-        if (mode === "idle") {
-          statusDot.className += " dot-idle";
-        } else if (mode === "processing") {
-          statusDot.className += " dot-processing";
-        } else if (mode === "ready") {
-          statusDot.className += " dot-ready";
-        } else if (mode === "error") {
-          statusDot.className += " dot-error";
-        }
+        if (mode === "idle") statusDot.className += " dot-idle";
+        else if (mode === "processing") statusDot.className += " dot-processing";
+        else if (mode === "ready") statusDot.className += " dot-ready";
+        else if (mode === "error") statusDot.className += " dot-error";
+
         statusText.textContent = text || "";
         if (typeof details === "string") {
           statusDetails.textContent = details;
@@ -210,9 +188,7 @@
       async function fetchStatusFromWorker() {
         try {
           var res = await fetch("/api/status");
-          if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-          }
+          if (!res.ok) throw new Error("HTTP " + res.status);
           var data = await res.json();
           if (data.status === "ready") {
             var msg = "Senaste import: " + (data.meta && data.meta.lastImportAt ? data.meta.lastImportAt : "okänt datum");
@@ -228,7 +204,6 @@
         }
       }
 
-      // Kör en initial status-check när sidan laddas
       fetchStatusFromWorker();
 
       uploadForm.addEventListener("submit", function (event) {
@@ -257,33 +232,55 @@
         reader.readAsArrayBuffer(file);
       });
 
-      function extractOrgnrsFromXml(xmlString) {
-        var resultSet = {};
+      function parseEntityXml(xmlString) {
+        var results = [];
         try {
           var parser = new DOMParser();
           var doc = parser.parseFromString(xmlString, "application/xml");
 
+          var orgName = "";
+          var orgDisplay = "";
+
           var allNodes = doc.getElementsByTagName("*");
           for (var i = 0; i < allNodes.length; i++) {
             var el = allNodes[i];
-            if (el.localName === "Scope") {
-              var text = (el.textContent || "").trim();
+            var local = el.localName || el.nodeName;
+            if (!local) continue;
+
+            if (!orgName && local === "OrganizationName") {
+              orgName = (el.textContent || "").trim();
+            }
+            if (!orgDisplay && local === "OrganizationDisplayName") {
+              orgDisplay = (el.textContent || "").trim();
+            }
+          }
+
+          var scopeOrgs = {};
+          for (var j = 0; j < allNodes.length; j++) {
+            var el2 = allNodes[j];
+            var local2 = el2.localName || el2.nodeName;
+            if (local2 === "Scope") {
+              var text = (el2.textContent || "").trim();
               var match = text.match(/^(\d{10})\.fedscope\.se$/);
               if (match && match[1]) {
-                resultSet[match[1]] = true;
+                scopeOrgs[match[1]] = true;
               }
+            }
+          }
+
+          for (var orgnr in scopeOrgs) {
+            if (Object.prototype.hasOwnProperty.call(scopeOrgs, orgnr)) {
+              results.push({
+                orgnr: orgnr,
+                organizationName: orgName || null,
+                organizationDisplayName: orgDisplay || null
+              });
             }
           }
         } catch (e) {
           // Ignorera parsingfel per fil
         }
-        var collected = [];
-        for (var k in resultSet) {
-          if (Object.prototype.hasOwnProperty.call(resultSet, k)) {
-            collected.push(k);
-          }
-        }
-        return collected;
+        return results;
       }
 
       async function handleZipBuffer(arrayBuffer) {
@@ -297,51 +294,76 @@
           for (var fileName in zip.files) {
             if (Object.prototype.hasOwnProperty.call(zip.files, fileName)) {
               var fileObj = zip.files[fileName];
-              if (!fileObj.dir) {
-                files.push(fileObj);
-              }
+              if (!fileObj.dir) files.push(fileObj);
             }
           }
 
-          setStatus("processing", "Läser ZIP...", "Hittade " + files.length + " filer. Extraherar orgnr från shibmd:Scope...");
+          setStatus(
+            "processing",
+            "Läser ZIP...",
+            "Hittade " + files.length + " filer. Extraherar orgnr, OrganizationName och OrganizationDisplayName..."
+          );
 
-          var globalSet = {};
+          var globalMap = {}; // orgnr -> { orgnr, organizationName, organizationDisplayName }
+
           for (var i = 0; i < files.length; i++) {
             var f = files[i];
-            // Läs XML som text
-            /* eslint-disable no-await-in-loop */
             var text = await f.async("string");
-            var orgs = extractOrgnrsFromXml(text);
-            for (var j = 0; j < orgs.length; j++) {
-              var o = orgs[j];
-              if (!globalSet[o]) {
-                globalSet[o] = true;
+            var entities = parseEntityXml(text);
+
+            for (var j = 0; j < entities.length; j++) {
+              var item = entities[j];
+              var orgnr = item.orgnr;
+              if (!orgnr) continue;
+
+              if (!globalMap[orgnr]) {
+                globalMap[orgnr] = {
+                  orgnr: orgnr,
+                  organizationName: item.organizationName,
+                  organizationDisplayName: item.organizationDisplayName
+                };
+              } else {
+                var existing = globalMap[orgnr];
+                if (!existing.organizationName && item.organizationName) {
+                  existing.organizationName = item.organizationName;
+                }
+                if (!existing.organizationDisplayName && item.organizationDisplayName) {
+                  existing.organizationDisplayName = item.organizationDisplayName;
+                }
               }
             }
           }
 
-          var orgnrs = [];
-          for (var key in globalSet) {
-            if (Object.prototype.hasOwnProperty.call(globalSet, key)) {
-              orgnrs.push(key);
+          var items = [];
+          for (var k in globalMap) {
+            if (Object.prototype.hasOwnProperty.call(globalMap, k)) {
+              items.push(globalMap[k]);
             }
           }
 
-          if (!orgnrs.length) {
+          if (!items.length) {
             uploadBtn.disabled = false;
             clearBtn.disabled = false;
-            setStatus("error", "Inga orgnr hittades", "Inga giltiga shibmd:Scope-värden av typen 10 siffror + .fedscope.se hittades i ZIP-filen.");
+            setStatus(
+              "error",
+              "Inga orgnr hittades",
+              "Inga giltiga shibmd:Scope-värden av typen 10 siffror + .fedscope.se hittades i ZIP-filen."
+            );
             return;
           }
 
-          setStatus("processing", "Sparar i KV...", "Skickar " + orgnrs.length + " unika orgnr till workern.");
+          setStatus(
+            "processing",
+            "Sparar i KV...",
+            "Skickar " + items.length + " unika orgnr med namn till workern."
+          );
 
           var res = await fetch("/api/import", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
-            body: JSON.stringify({ orgnrs: orgnrs })
+            body: JSON.stringify({ items: items })
           });
 
           if (!res.ok) {
@@ -350,7 +372,7 @@
           }
 
           var data = await res.json();
-          var imported = (data && typeof data.imported === "number") ? data.imported : orgnrs.length;
+          var imported = (data && typeof data.imported === "number") ? data.imported : items.length;
           var info = "Importerade " + imported + " orgnr till KV.";
           if (data && data.meta && data.meta.lastImportAt) {
             info += " Senaste import: " + data.meta.lastImportAt + ".";
@@ -376,9 +398,7 @@
         setStatus("processing", "Rensar...", "Tar bort alla nycklar i KV. Detta kan ta en liten stund.");
 
         try {
-          var res = await fetch("/api/clear", {
-            method: "POST"
-          });
+          var res = await fetch("/api/clear", { method: "POST" });
           if (!res.ok) {
             var t = await res.text();
             throw new Error("HTTP " + res.status + ": " + t);
