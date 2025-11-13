@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>SAML ZIP → KV-import</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Enkel inline CSS -->
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f7;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #ffffff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      max-width: 480px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+    }
+    p.description {
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+      color: #4b5563;
+      font-size: 0.95rem;
+    }
+    .field {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    input[type="file"] {
+      width: 100%;
+    }
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: #111827;
+      color: #ffffff;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+    }
+    button:hover {
+      background: #1f2937;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+    .buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.25rem;
+      flex-wrap: wrap;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .btn-secondary:hover {
+      background: #d1d5db;
+      box-shadow: none;
+      transform: translateY(0);
+    }
+    .status-box {
+      margin-top: 1rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 10px;
+      background: #f3f4f6;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #374151;
+      word-break: break-word;
+      white-space: pre-line;
+    }
+    .status-label {
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 0.35rem;
+    }
+    .dot-idle {
+      background: #9ca3af;
+    }
+    .dot-processing {
+      background: #f59e0b;
+    }
+    .dot-ready {
+      background: #10b981;
+    }
+    .dot-error {
+      background: #ef4444;
+    }
+    .status-line {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+    .small {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+    .hint {
+      margin-top: 0.25rem;
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+  </style>
+
+  <!-- JSZip för att läsa ZIP-filen i browsern -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-SWqLAOF+n7cOEhZ0bbAi4dGzXwaMfw0vPpDN6Pw8DsQYl5DlbzRIlnaQDls7qRsqqZiwqZLjTe1FaH4kb24M2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>SAML ZIP → KV-import</h1>
+    <p class="description">
+      Ladda upp en ZIP-fil med SAML-entiteter. Klienten letar upp
+      <code>shibmd:Scope</code>-element av typen <code>&lt;organisationsnummer&gt;.fedscope.se</code>
+      och skickar unika organisationsnummer till workern, som sparar dem i KV.
+    </p>
+
+    <form id="uploadForm">
+      <div class="field">
+        <label for="zipFile">ZIP-fil med SAML-XML</label>
+        <input type="file" id="zipFile" name="zipFile" accept=".zip" required />
+        <div class="hint">Varje entitet ska ligga i en egen XML-fil inuti ZIP:en.</div>
+      </div>
+
+      <div class="buttons">
+        <button type="submit" id="uploadBtn">Ladda upp &amp; importera</button>
+        <button type="button" id="clearBtn" class="btn-secondary">Rensa all data</button>
+      </div>
+    </form>
+
+    <div class="status-box" id="statusBox">
+      <div class="status-line">
+        <span class="status-dot dot-idle" id="statusDot"></span>
+        <span class="status-label">Status:</span>
+        <span id="statusText">Idle</span>
+      </div>
+      <div id="statusDetails" class="small">
+        Ingen import har körts ännu.
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline JS -->
+  <script>
+    (function () {
+      var uploadForm = document.getElementById("uploadForm");
+      var zipInput = document.getElementById("zipFile");
+      var uploadBtn = document.getElementById("uploadBtn");
+      var clearBtn = document.getElementById("clearBtn");
+      var statusBox = document.getElementById("statusBox");
+      var statusDot = document.getElementById("statusDot");
+      var statusText = document.getElementById("statusText");
+      var statusDetails = document.getElementById("statusDetails");
+
+      function setStatus(mode, text, details) {
+        // mode: idle | processing | ready | error
+        statusDot.className = "status-dot";
+        if (mode === "idle") {
+          statusDot.className += " dot-idle";
+        } else if (mode === "processing") {
+          statusDot.className += " dot-processing";
+        } else if (mode === "ready") {
+          statusDot.className += " dot-ready";
+        } else if (mode === "error") {
+          statusDot.className += " dot-error";
+        }
+        statusText.textContent = text || "";
+        if (typeof details === "string") {
+          statusDetails.textContent = details;
+        }
+      }
+
+      async function fetchStatusFromWorker() {
+        try {
+          var res = await fetch("/api/status");
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+          var data = await res.json();
+          if (data.status === "ready") {
+            var msg = "Senaste import: " + (data.meta && data.meta.lastImportAt ? data.meta.lastImportAt : "okänt datum");
+            if (data.meta && typeof data.meta.count === "number") {
+              msg += " · " + data.meta.count + " orgnr i senaste körningen.";
+            }
+            setStatus("ready", "Klar", msg);
+          } else {
+            setStatus("idle", "Idle", "Ingen import har körts ännu.");
+          }
+        } catch (e) {
+          setStatus("error", "Fel vid status", "Kunde inte hämta status: " + e.message);
+        }
+      }
+
+      // Kör en initial status-check när sidan laddas
+      fetchStatusFromWorker();
+
+      uploadForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!zipInput.files || !zipInput.files[0]) {
+          alert("Välj en ZIP-fil först.");
+          return;
+        }
+
+        var file = zipInput.files[0];
+
+        uploadBtn.disabled = true;
+        clearBtn.disabled = true;
+        setStatus("processing", "Läser ZIP...", "Analyserar SAML-filer i webbläsaren.");
+
+        var reader = new FileReader();
+        reader.onerror = function () {
+          uploadBtn.disabled = false;
+          clearBtn.disabled = false;
+          setStatus("error", "Fel", "Kunde inte läsa ZIP-filen.");
+        };
+        reader.onload = function (e) {
+          var arrayBuffer = e.target.result;
+          handleZipBuffer(arrayBuffer);
+        };
+        reader.readAsArrayBuffer(file);
+      });
+
+      function extractOrgnrsFromXml(xmlString) {
+        var resultSet = {};
+        try {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(xmlString, "application/xml");
+
+          var allNodes = doc.getElementsByTagName("*");
+          for (var i = 0; i < allNodes.length; i++) {
+            var el = allNodes[i];
+            if (el.localName === "Scope") {
+              var text = (el.textContent || "").trim();
+              var match = text.match(/^(\d{10})\.fedscope\.se$/);
+              if (match && match[1]) {
+                resultSet[match[1]] = true;
+              }
+            }
+          }
+        } catch (e) {
+          // Ignorera parsingfel per fil
+        }
+        var collected = [];
+        for (var k in resultSet) {
+          if (Object.prototype.hasOwnProperty.call(resultSet, k)) {
+            collected.push(k);
+          }
+        }
+        return collected;
+      }
+
+      async function handleZipBuffer(arrayBuffer) {
+        try {
+          if (typeof JSZip === "undefined") {
+            throw new Error("JSZip är inte tillgängligt.");
+          }
+
+          var zip = await JSZip.loadAsync(arrayBuffer);
+          var files = [];
+          for (var fileName in zip.files) {
+            if (Object.prototype.hasOwnProperty.call(zip.files, fileName)) {
+              var fileObj = zip.files[fileName];
+              if (!fileObj.dir) {
+                files.push(fileObj);
+              }
+            }
+          }
+
+          setStatus("processing", "Läser ZIP...", "Hittade " + files.length + " filer. Extraherar orgnr från shibmd:Scope...");
+
+          var globalSet = {};
+          for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            // Läs XML som text
+            /* eslint-disable no-await-in-loop */
+            var text = await f.async("string");
+            var orgs = extractOrgnrsFromXml(text);
+            for (var j = 0; j < orgs.length; j++) {
+              var o = orgs[j];
+              if (!globalSet[o]) {
+                globalSet[o] = true;
+              }
+            }
+          }
+
+          var orgnrs = [];
+          for (var key in globalSet) {
+            if (Object.prototype.hasOwnProperty.call(globalSet, key)) {
+              orgnrs.push(key);
+            }
+          }
+
+          if (!orgnrs.length) {
+            uploadBtn.disabled = false;
+            clearBtn.disabled = false;
+            setStatus("error", "Inga orgnr hittades", "Inga giltiga shibmd:Scope-värden av typen 10 siffror + .fedscope.se hittades i ZIP-filen.");
+            return;
+          }
+
+          setStatus("processing", "Sparar i KV...", "Skickar " + orgnrs.length + " unika orgnr till workern.");
+
+          var res = await fetch("/api/import", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ orgnrs: orgnrs })
+          });
+
+          if (!res.ok) {
+            var textErr = await res.text();
+            throw new Error("HTTP " + res.status + ": " + textErr);
+          }
+
+          var data = await res.json();
+          var imported = (data && typeof data.imported === "number") ? data.imported : orgnrs.length;
+          var info = "Importerade " + imported + " orgnr till KV.";
+          if (data && data.meta && data.meta.lastImportAt) {
+            info += " Senaste import: " + data.meta.lastImportAt + ".";
+          }
+
+          setStatus("ready", "Klar", info);
+        } catch (e) {
+          setStatus("error", "Fel vid import", e.message || String(e));
+        } finally {
+          uploadBtn.disabled = false;
+          clearBtn.disabled = false;
+        }
+      }
+
+      clearBtn.addEventListener("click", async function () {
+        if (!confirm("Är du säker på att du vill rensa ALL data i KV?")) {
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        clearBtn.disabled = true;
+
+        setStatus("processing", "Rensar...", "Tar bort alla nycklar i KV. Detta kan ta en liten stund.");
+
+        try {
+          var res = await fetch("/api/clear", {
+            method: "POST"
+          });
+          if (!res.ok) {
+            var t = await res.text();
+            throw new Error("HTTP " + res.status + ": " + t);
+          }
+          var data = await res.json();
+          var deleted = data && typeof data.deleted === "number" ? data.deleted : 0;
+          setStatus("idle", "Idle", "Rensning klar. Tog bort " + deleted + " nycklar från KV.");
+        } catch (e) {
+          setStatus("error", "Fel vid rensning", e.message || String(e));
+        } finally {
+          uploadBtn.disabled = false;
+          clearBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
