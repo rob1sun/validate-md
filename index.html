@@ -94,10 +94,7 @@
       word-break: break-word;
       white-space: pre-line;
     }
-    .status-label {
-      font-weight: 600;
-      margin-right: 0.25rem;
-    }
+    .status-label { font-weight: 600; margin-right: 0.25rem; }
     .status-dot {
       width: 10px;
       height: 10px;
@@ -114,10 +111,7 @@
       align-items: center;
       margin-bottom: 0.25rem;
     }
-    .small {
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
+    .small { font-size: 0.8rem; color: #6b7280; }
     .hint {
       margin-top: 0.25rem;
       font-size: 0.8rem;
@@ -132,9 +126,9 @@
     <h1>SAML ZIP → KV-import</h1>
     <p class="description">
       Ladda upp en ZIP-fil med SAML-entiteter. Klienten letar upp
-      <code>shibmd:Scope</code>-element (<code>&lt;orgnr&gt;.fedscope.se</code>),
-      samt <code>OrganizationName</code> och <code>OrganizationDisplayName</code>, och skickar
-      data per organisationsnummer till workern som sparar dem i KV.
+      <code>shibmd:Scope</code> (<code>&lt;orgnr&gt;.fedscope.se</code>),
+      samt <code>OrganizationName</code>, <code>OrganizationDisplayName</code> och <code>EntityDescriptor@entityID</code>,
+      och skickar data per organisationsnummer till workern som sparar dem i KV.
     </p>
 
     <form id="uploadForm">
@@ -240,6 +234,7 @@
 
           var orgName = "";
           var orgDisplay = "";
+          var entityID = "";
 
           var allNodes = doc.getElementsByTagName("*");
           for (var i = 0; i < allNodes.length; i++) {
@@ -252,6 +247,12 @@
             }
             if (!orgDisplay && local === "OrganizationDisplayName") {
               orgDisplay = (el.textContent || "").trim();
+            }
+            if (!entityID && local === "EntityDescriptor") {
+              var attr = el.getAttribute && el.getAttribute("entityID");
+              if (attr) {
+                entityID = String(attr).trim();
+              }
             }
           }
 
@@ -273,7 +274,8 @@
               results.push({
                 orgnr: orgnr,
                 organizationName: orgName || null,
-                organizationDisplayName: orgDisplay || null
+                organizationDisplayName: orgDisplay || null,
+                entityID: entityID || null
               });
             }
           }
@@ -301,10 +303,10 @@
           setStatus(
             "processing",
             "Läser ZIP...",
-            "Hittade " + files.length + " filer. Extraherar orgnr, OrganizationName och OrganizationDisplayName..."
+            "Hittade " + files.length + " filer. Extraherar orgnr, namn och entityID..."
           );
 
-          var globalMap = {}; // orgnr -> { orgnr, organizationName, organizationDisplayName }
+          var globalMap = {}; // orgnr -> { orgnr, organizationName, organizationDisplayName, entityID }
 
           for (var i = 0; i < files.length; i++) {
             var f = files[i];
@@ -320,7 +322,8 @@
                 globalMap[orgnr] = {
                   orgnr: orgnr,
                   organizationName: item.organizationName,
-                  organizationDisplayName: item.organizationDisplayName
+                  organizationDisplayName: item.organizationDisplayName,
+                  entityID: item.entityID
                 };
               } else {
                 var existing = globalMap[orgnr];
@@ -329,6 +332,9 @@
                 }
                 if (!existing.organizationDisplayName && item.organizationDisplayName) {
                   existing.organizationDisplayName = item.organizationDisplayName;
+                }
+                if (!existing.entityID && item.entityID) {
+                  existing.entityID = item.entityID;
                 }
               }
             }
@@ -355,7 +361,7 @@
           setStatus(
             "processing",
             "Sparar i KV...",
-            "Skickar " + items.length + " unika orgnr med namn till workern."
+            "Skickar " + items.length + " unika orgnr med namn och entityID till workern."
           );
 
           var res = await fetch("/api/import", {
