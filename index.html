@@ -5,137 +5,44 @@
   <title>SAML ZIP → KV-import</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    /* Samma styling som tidigare */
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f5f7;
-      color: #111827;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-    .container {
-      background: #ffffff;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-      max-width: 480px;
-      width: 100%;
-    }
-    h1 {
-      font-size: 1.4rem;
-      margin-top: 0;
-      margin-bottom: 0.5rem;
-    }
-    p.description {
-      margin-top: 0;
-      margin-bottom: 1.25rem;
-      color: #4b5563;
-      font-size: 0.95rem;
-    }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f5f5f7; color: #111827; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .container { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); max-width: 480px; width: 100%; }
+    h1 { font-size: 1.4rem; margin: 0 0 0.5rem 0; }
+    p.description { margin: 0 0 1.25rem 0; color: #4b5563; font-size: 0.95rem; }
     .field { margin-bottom: 1rem; }
-    label {
-      display: block;
-      margin-bottom: 0.35rem;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
+    label { display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.9rem; }
     input[type="file"] { width: 100%; }
-    button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem 0.9rem;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      background: #111827;
-      color: #ffffff;
-      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
-    }
-    button:hover {
-      background: #1f2937;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-      transform: translateY(-1px);
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: default;
-      box-shadow: none;
-      transform: none;
-    }
-    .buttons {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 0.25rem;
-      flex-wrap: wrap;
-    }
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-    .btn-secondary:hover {
-      background: #d1d5db;
-      box-shadow: none;
-      transform: translateY(0);
-    }
-    .status-box {
-      margin-top: 1rem;
-      padding: 0.75rem 0.9rem;
-      border-radius: 10px;
-      background: #f3f4f6;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      color: #374151;
-      word-break: break-word;
-      white-space: pre-line;
-    }
-    .status-label { font-weight: 600; margin-right: 0.25rem; }
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      display: inline-block;
-      margin-right: 0.35rem;
-    }
+    button { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 0.9rem; border-radius: 999px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; background: #111827; color: #ffffff; transition: all 0.1s ease; }
+    button:hover { background: #1f2937; transform: translateY(-1px); }
+    button:disabled { opacity: 0.6; cursor: default; transform: none; }
+    .buttons { display: flex; gap: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .status-box { margin-top: 1rem; padding: 0.75rem 0.9rem; border-radius: 10px; background: #f3f4f6; font-size: 0.85rem; line-height: 1.5; color: #374151; word-break: break-word; white-space: pre-line; }
+    .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 0.35rem; }
     .dot-idle { background: #9ca3af; }
     .dot-processing { background: #f59e0b; }
     .dot-ready { background: #10b981; }
     .dot-error { background: #ef4444; }
-    .status-line {
-      display: flex;
-      align-items: center;
-      margin-bottom: 0.25rem;
-    }
+    .status-line { display: flex; align-items: center; margin-bottom: 0.25rem; }
     .small { font-size: 0.8rem; color: #6b7280; }
-    .hint {
-      margin-top: 0.25rem;
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
+    .hint { margin-top: 0.25rem; font-size: 0.8rem; color: #6b7280; }
   </style>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
   <div class="container">
     <h1>SAML ZIP → KV-import</h1>
     <p class="description">
-      Ladda upp en ZIP-fil med SAML-entiteter. Klienten letar upp
-      <code>shibmd:Scope</code> (<code>&lt;orgnr&gt;.fedscope.se</code>),
-      samt <code>OrganizationName</code>, <code>OrganizationDisplayName</code> och <code>EntityDescriptor@entityID</code>,
-      och skickar data per organisationsnummer till workern som sparar dem i KV.
+      Extraherar data från <code>shibmd:Scope</code> och sparar i KV.
     </p>
 
     <form id="uploadForm">
       <div class="field">
         <label for="zipFile">ZIP-fil med SAML-XML</label>
         <input type="file" id="zipFile" name="zipFile" accept=".zip" required />
-        <div class="hint">Varje entitet ska ligga i en egen XML-fil inuti ZIP:en.</div>
+        <div class="hint">Varje entitet ska ligga i en egen XML-fil.</div>
       </div>
 
       <div class="buttons">
@@ -147,277 +54,143 @@
     <div class="status-box" id="statusBox">
       <div class="status-line">
         <span class="status-dot dot-idle" id="statusDot"></span>
-        <span class="status-label">Status:</span>
+        <span class="status-label"><strong>Status:</strong></span>
         <span id="statusText">Idle</span>
       </div>
-      <div id="statusDetails" class="small">
-        Ingen import har körts ännu.
-      </div>
+      <div id="statusDetails" class="small">Ingen import har körts ännu.</div>
     </div>
   </div>
 
   <script>
     (function () {
-      var uploadForm = document.getElementById("uploadForm");
-      var zipInput = document.getElementById("zipFile");
-      var uploadBtn = document.getElementById("uploadBtn");
-      var clearBtn = document.getElementById("clearBtn");
-      var statusDot = document.getElementById("statusDot");
-      var statusText = document.getElementById("statusText");
-      var statusDetails = document.getElementById("statusDetails");
+      const uploadForm = document.getElementById("uploadForm");
+      const zipInput = document.getElementById("zipFile");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const statusDetails = document.getElementById("statusDetails");
 
       function setStatus(mode, text, details) {
-        statusDot.className = "status-dot";
-        if (mode === "idle") statusDot.className += " dot-idle";
-        else if (mode === "processing") statusDot.className += " dot-processing";
-        else if (mode === "ready") statusDot.className += " dot-ready";
-        else if (mode === "error") statusDot.className += " dot-error";
-
+        statusDot.className = "status-dot dot-" + mode;
         statusText.textContent = text || "";
-        if (typeof details === "string") {
-          statusDetails.textContent = details;
-        }
+        if (details) statusDetails.textContent = details;
       }
 
       async function fetchStatusFromWorker() {
         try {
-          var res = await fetch("/api/status");
+          const res = await fetch("/api/status");
           if (!res.ok) throw new Error("HTTP " + res.status);
-          var data = await res.json();
+          const data = await res.json();
           if (data.status === "ready") {
-            var msg = "Senaste import: " + (data.meta && data.meta.lastImportAt ? data.meta.lastImportAt : "okänt datum");
-            if (data.meta && typeof data.meta.count === "number") {
-              msg += " · " + data.meta.count + " orgnr i senaste körningen.";
-            }
+            const msg = `Senaste import: ${data.meta?.lastImportAt || "okänt"} · ${data.meta?.count || 0} orgnr.`;
             setStatus("ready", "Klar", msg);
-          } else {
-            setStatus("idle", "Idle", "Ingen import har körts ännu.");
           }
-        } catch (e) {
-          setStatus("error", "Fel vid status", "Kunde inte hämta status: " + e.message);
-        }
+        } catch (e) { setStatus("error", "Fel", e.message); }
       }
 
       fetchStatusFromWorker();
 
-      uploadForm.addEventListener("submit", function (event) {
+      uploadForm.addEventListener("submit", async function (event) {
         event.preventDefault();
-        if (!zipInput.files || !zipInput.files[0]) {
-          alert("Välj en ZIP-fil först.");
-          return;
-        }
-
-        var file = zipInput.files[0];
-
+        if (!zipInput.files?.[0]) return;
+        
         uploadBtn.disabled = true;
         clearBtn.disabled = true;
-        setStatus("processing", "Läser ZIP...", "Analyserar SAML-filer i webbläsaren.");
+        setStatus("processing", "Läser ZIP...", "Analyserar filer...");
 
-        var reader = new FileReader();
-        reader.onerror = function () {
-          uploadBtn.disabled = false;
-          clearBtn.disabled = false;
-          setStatus("error", "Fel", "Kunde inte läsa ZIP-filen.");
-        };
-        reader.onload = function (e) {
-          var arrayBuffer = e.target.result;
-          handleZipBuffer(arrayBuffer);
-        };
-        reader.readAsArrayBuffer(file);
+        const reader = new FileReader();
+        reader.onload = e => handleZipBuffer(e.target.result);
+        reader.readAsArrayBuffer(zipInput.files[0]);
       });
 
       function parseEntityXml(xmlString) {
-        var results = [];
+        const results = [];
         try {
-          var parser = new DOMParser();
-          var doc = parser.parseFromString(xmlString, "application/xml");
+          const doc = new DOMParser().parseFromString(xmlString, "application/xml");
+          let orgName = "", orgDisplay = "", entityID = "";
+          const allNodes = doc.getElementsByTagName("*");
 
-          var orgName = "";
-          var orgDisplay = "";
-          var entityID = "";
+          for (let el of allNodes) {
+            const local = el.localName || el.nodeName;
+            if (local === "OrganizationName" && !orgName) orgName = el.textContent.trim();
+            if (local === "OrganizationDisplayName" && !orgDisplay) orgDisplay = el.textContent.trim();
+            if (local === "EntityDescriptor" && !entityID) entityID = el.getAttribute("entityID")?.trim();
+          }
 
-          var allNodes = doc.getElementsByTagName("*");
-          for (var i = 0; i < allNodes.length; i++) {
-            var el = allNodes[i];
-            var local = el.localName || el.nodeName;
-            if (!local) continue;
-
-            if (!orgName && local === "OrganizationName") {
-              orgName = (el.textContent || "").trim();
-            }
-            if (!orgDisplay && local === "OrganizationDisplayName") {
-              orgDisplay = (el.textContent || "").trim();
-            }
-            if (!entityID && local === "EntityDescriptor") {
-              var attr = el.getAttribute && el.getAttribute("entityID");
-              if (attr) {
-                entityID = String(attr).trim();
-              }
+          const scopeOrgs = {};
+          for (let el of allNodes) {
+            if ((el.localName || el.nodeName) === "Scope") {
+              const text = el.textContent.trim();
+              // UPPDATERAD REGEX: 
+              // 1. 10 siffror (\d{10})
+              // 2. Valfri mellanliggande del som slutar på punkt (?:.+\.)?
+              // 3. Avslutas med fedscope.se
+              const match = text.match(/^(\d{10})\.(?:.+\.)?fedscope\.se$/);
+              if (match && match[1]) scopeOrgs[match[1]] = true;
             }
           }
 
-          var scopeOrgs = {};
-          for (var j = 0; j < allNodes.length; j++) {
-            var el2 = allNodes[j];
-            var local2 = el2.localName || el2.nodeName;
-            if (local2 === "Scope") {
-              var text = (el2.textContent || "").trim();
-              var match = text.match(/^(\d{10})\.fedscope\.se$/);
-              if (match && match[1]) {
-                scopeOrgs[match[1]] = true;
-              }
-            }
+          for (let orgnr in scopeOrgs) {
+            results.push({ orgnr, organizationName: orgName || null, organizationDisplayName: orgDisplay || null, entityID: entityID || null });
           }
-
-          for (var orgnr in scopeOrgs) {
-            if (Object.prototype.hasOwnProperty.call(scopeOrgs, orgnr)) {
-              results.push({
-                orgnr: orgnr,
-                organizationName: orgName || null,
-                organizationDisplayName: orgDisplay || null,
-                entityID: entityID || null
-              });
-            }
-          }
-        } catch (e) {
-          // Ignorera parsingfel per fil
-        }
+        } catch (e) {}
         return results;
       }
 
       async function handleZipBuffer(arrayBuffer) {
         try {
-          if (typeof JSZip === "undefined") {
-            throw new Error("JSZip är inte tillgängligt.");
-          }
+          const zip = await JSZip.loadAsync(arrayBuffer);
+          const globalMap = {};
+          const files = Object.values(zip.files).filter(f => !f.dir);
 
-          var zip = await JSZip.loadAsync(arrayBuffer);
-          var files = [];
-          for (var fileName in zip.files) {
-            if (Object.prototype.hasOwnProperty.call(zip.files, fileName)) {
-              var fileObj = zip.files[fileName];
-              if (!fileObj.dir) files.push(fileObj);
-            }
-          }
-
-          setStatus(
-            "processing",
-            "Läser ZIP...",
-            "Hittade " + files.length + " filer. Extraherar orgnr, namn och entityID..."
-          );
-
-          var globalMap = {}; // orgnr -> { orgnr, organizationName, organizationDisplayName, entityID }
-
-          for (var i = 0; i < files.length; i++) {
-            var f = files[i];
-            var text = await f.async("string");
-            var entities = parseEntityXml(text);
-
-            for (var j = 0; j < entities.length; j++) {
-              var item = entities[j];
-              var orgnr = item.orgnr;
-              if (!orgnr) continue;
-
-              if (!globalMap[orgnr]) {
-                globalMap[orgnr] = {
-                  orgnr: orgnr,
-                  organizationName: item.organizationName,
-                  organizationDisplayName: item.organizationDisplayName,
-                  entityID: item.entityID
-                };
+          for (let f of files) {
+            const text = await f.async("string");
+            const entities = parseEntityXml(text);
+            entities.forEach(item => {
+              if (!globalMap[item.orgnr]) {
+                globalMap[item.orgnr] = item;
               } else {
-                var existing = globalMap[orgnr];
-                if (!existing.organizationName && item.organizationName) {
-                  existing.organizationName = item.organizationName;
-                }
-                if (!existing.organizationDisplayName && item.organizationDisplayName) {
-                  existing.organizationDisplayName = item.organizationDisplayName;
-                }
-                if (!existing.entityID && item.entityID) {
-                  existing.entityID = item.entityID;
-                }
+                if (!globalMap[item.orgnr].organizationName) globalMap[item.orgnr].organizationName = item.organizationName;
+                if (!globalMap[item.orgnr].entityID) globalMap[item.orgnr].entityID = item.entityID;
               }
-            }
+            });
           }
 
-          var items = [];
-          for (var k in globalMap) {
-            if (Object.prototype.hasOwnProperty.call(globalMap, k)) {
-              items.push(globalMap[k]);
-            }
-          }
+          const items = Object.values(globalMap);
+          if (!items.length) throw new Error("Inga giltiga orgnr hittades (.fedscope.se)");
 
-          if (!items.length) {
-            uploadBtn.disabled = false;
-            clearBtn.disabled = false;
-            setStatus(
-              "error",
-              "Inga orgnr hittades",
-              "Inga giltiga shibmd:Scope-värden av typen 10 siffror + .fedscope.se hittades i ZIP-filen."
-            );
-            return;
-          }
+          setStatus("processing", "Sparar...", `Skickar ${items.length} orgnr till KV.`);
 
-          setStatus(
-            "processing",
-            "Sparar i KV...",
-            "Skickar " + items.length + " unika orgnr med namn och entityID till workern."
-          );
-
-          var res = await fetch("/api/import", {
+          const res = await fetch("/api/import", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ items: items })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items })
           });
 
-          if (!res.ok) {
-            var textErr = await res.text();
-            throw new Error("HTTP " + res.status + ": " + textErr);
-          }
-
-          var data = await res.json();
-          var imported = (data && typeof data.imported === "number") ? data.imported : items.length;
-          var info = "Importerade " + imported + " orgnr till KV.";
-          if (data && data.meta && data.meta.lastImportAt) {
-            info += " Senaste import: " + data.meta.lastImportAt + ".";
-          }
-
-          setStatus("ready", "Klar", info);
+          if (!res.ok) throw new Error(await res.text());
+          const data = await res.json();
+          setStatus("ready", "Klar", `Importerade ${data.imported} orgnr.`);
         } catch (e) {
-          setStatus("error", "Fel vid import", e.message || String(e));
+          setStatus("error", "Fel", e.message);
         } finally {
           uploadBtn.disabled = false;
           clearBtn.disabled = false;
         }
       }
 
-      clearBtn.addEventListener("click", async function () {
-        if (!confirm("Är du säker på att du vill rensa ALL data i KV?")) {
-          return;
-        }
-
+      clearBtn.addEventListener("click", async () => {
+        if (!confirm("Rensa allt?")) return;
         uploadBtn.disabled = true;
         clearBtn.disabled = true;
-
-        setStatus("processing", "Rensar...", "Tar bort alla nycklar i KV. Detta kan ta en liten stund.");
-
+        setStatus("processing", "Rensar...", "Tar bort data...");
         try {
-          var res = await fetch("/api/clear", { method: "POST" });
-          if (!res.ok) {
-            var t = await res.text();
-            throw new Error("HTTP " + res.status + ": " + t);
-          }
-          var data = await res.json();
-          var deleted = data && typeof data.deleted === "number" ? data.deleted : 0;
-          setStatus("idle", "Idle", "Rensning klar. Tog bort " + deleted + " nycklar från KV.");
-        } catch (e) {
-          setStatus("error", "Fel vid rensning", e.message || String(e));
-        } finally {
-          uploadBtn.disabled = false;
-          clearBtn.disabled = false;
-        }
+          const res = await fetch("/api/clear", { method: "POST" });
+          const data = await res.json();
+          setStatus("idle", "Idle", `Rensat ${data.deleted} nycklar.`);
+        } catch (e) { setStatus("error", "Fel", e.message); }
+        uploadBtn.disabled = false;
+        clearBtn.disabled = false;
       });
     })();
   </script>
