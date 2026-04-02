@@ -4,195 +4,232 @@
   <meta charset="UTF-8" />
   <title>SAML ZIP → KV-import</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    /* Samma styling som tidigare */
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f5f5f7; color: #111827; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .container { background: #ffffff; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); max-width: 480px; width: 100%; }
-    h1 { font-size: 1.4rem; margin: 0 0 0.5rem 0; }
-    p.description { margin: 0 0 1.25rem 0; color: #4b5563; font-size: 0.95rem; }
-    .field { margin-bottom: 1rem; }
-    label { display: block; margin-bottom: 0.35rem; font-weight: 600; font-size: 0.9rem; }
-    input[type="file"] { width: 100%; }
-    button { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 0.9rem; border-radius: 999px; border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600; background: #111827; color: #ffffff; transition: all 0.1s ease; }
-    button:hover { background: #1f2937; transform: translateY(-1px); }
-    button:disabled { opacity: 0.6; cursor: default; transform: none; }
-    .buttons { display: flex; gap: 0.75rem; margin-top: 0.25rem; flex-wrap: wrap; }
-    .btn-secondary { background: #e5e7eb; color: #111827; }
-    .status-box { margin-top: 1rem; padding: 0.75rem 0.9rem; border-radius: 10px; background: #f3f4f6; font-size: 0.85rem; line-height: 1.5; color: #374151; word-break: break-word; white-space: pre-line; }
-    .status-dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 0.35rem; }
-    .dot-idle { background: #9ca3af; }
-    .dot-processing { background: #f59e0b; }
-    .dot-ready { background: #10b981; }
-    .dot-error { background: #ef4444; }
-    .status-line { display: flex; align-items: center; margin-bottom: 0.25rem; }
-    .small { font-size: 0.8rem; color: #6b7280; }
-    .hint { margin-top: 0.25rem; font-size: 0.8rem; color: #6b7280; }
-  </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #f5f5f7; color: #111827; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;}
+    .container { background: #ffffff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); max-width: 500px; width: 100%; }
+    h1 { font-size: 1.4rem; margin: 0 0 0.5rem 0; }
+    p.description { margin: 0 0 1.25rem 0; color: #4b5563; font-size: 0.9rem; line-height: 1.4;}
+    .field { margin-bottom: 1.2rem; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;}
+    label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #374151;}
+    input[type="file"] { width: 100%; font-size: 0.85rem;}
+    .hint { font-size: 0.75rem; color: #6b7280; margin-top: 0.4rem; }
+    .actions { display: flex; gap: 10px; margin-top: 1.5rem; }
+    button { flex: 1; padding: 0.6rem 1rem; font-size: 0.95rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #uploadBtn { background: #2563eb; color: #fff; }
+    #clearBtn { background: #ef4444; color: #fff; }
+    .status-box { margin-top: 1.5rem; padding: 15px; border-radius: 8px; display: none; font-size: 0.9rem;}
+    .status-box.processing { display: block; background: #eff6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
+    .status-box.ready { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .status-box.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .status-title { font-weight: 600; margin-bottom: 0.2rem; }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>SAML ZIP → KV-import</h1>
-    <p class="description">
-      Extraherar data från <code>shibmd:Scope</code> och sparar i KV.
-    </p>
+    <h1>Läs in Metadata (SAML)</h1>
+    <p class="description">Ladda upp ZIP-filen med SAML-entiteter. Om vissa entiteter använder UID/UUID istället för orgnr, bifoga mappningsfilen.</p>
 
-    <form id="uploadForm">
-      <div class="field">
-        <label for="zipFile">ZIP-fil med SAML-XML</label>
-        <input type="file" id="zipFile" name="zipFile" accept=".zip" required />
-        <div class="hint">Varje entitet ska ligga i en egen XML-fil.</div>
-      </div>
+    <div class="field">
+      <label for="zipFile">1. SAML Metadata (ZIP)</label>
+      <input type="file" id="zipFile" accept=".zip" />
+    </div>
 
-      <div class="buttons">
-        <button type="submit" id="uploadBtn">Ladda upp &amp; importera</button>
-        <button type="button" id="clearBtn" class="btn-secondary">Rensa all data</button>
-      </div>
-    </form>
+    <div class="field">
+      <label for="csvFile">2. Mappningsfil (CSV) - Valfritt</label>
+      <input type="file" id="csvFile" accept=".csv" />
+      <div class="hint">Format: <code>organization_number,uid</code></div>
+    </div>
 
-    <div class="status-box" id="statusBox">
-      <div class="status-line">
-        <span class="status-dot dot-idle" id="statusDot"></span>
-        <span class="status-label"><strong>Status:</strong></span>
-        <span id="statusText">Idle</span>
-      </div>
-      <div id="statusDetails" class="small">Ingen import har körts ännu.</div>
+    <div class="actions">
+      <button id="uploadBtn">Läs in filer till KV</button>
+      <button id="clearBtn">Rensa databasen</button>
+    </div>
+
+    <div id="statusBox" class="status-box">
+      <div id="statusTitle" class="status-title"></div>
+      <div id="statusMsg"></div>
     </div>
   </div>
 
   <script>
-    (function () {
-      const uploadForm = document.getElementById("uploadForm");
-      const zipInput = document.getElementById("zipFile");
-      const uploadBtn = document.getElementById("uploadBtn");
-      const clearBtn = document.getElementById("clearBtn");
-      const statusDot = document.getElementById("statusDot");
-      const statusText = document.getElementById("statusText");
-      const statusDetails = document.getElementById("statusDetails");
+    const zipFileInput = document.getElementById("zipFile");
+    const csvFileInput = document.getElementById("csvFile");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusBox = document.getElementById("statusBox");
+    const statusTitle = document.getElementById("statusTitle");
+    const statusMsg = document.getElementById("statusMsg");
 
-      function setStatus(mode, text, details) {
-        statusDot.className = "status-dot dot-" + mode;
-        statusText.textContent = text || "";
-        if (details) statusDetails.textContent = details;
-      }
+    function setStatus(type, title, msg) {
+      statusBox.className = "status-box " + type;
+      statusTitle.textContent = title;
+      statusMsg.textContent = msg;
+    }
 
-      async function fetchStatusFromWorker() {
-        try {
-          const res = await fetch("/api/status");
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          if (data.status === "ready") {
-            const msg = `Senaste import: ${data.meta?.lastImportAt || "okänt"} · ${data.meta?.count || 0} orgnr.`;
-            setStatus("ready", "Klar", msg);
+    // --- CSV PARSER ---
+    async function parseMappingCsv(file) {
+      if (!file) return {};
+      const text = await file.text();
+      const lines = text.split(/\r?\n/);
+      const map = {};
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const parts = line.split(',');
+        if (parts.length >= 2) {
+          const orgnr = parts[0].trim();
+          const uid = parts[1].trim();
+          
+          if (orgnr.toLowerCase() === 'organization_number') continue; // Skippa header
+          
+          // Spara UID exakt som den är
+          map[uid] = orgnr;
+          
+          // Spara även varianter med/utan "en-" i minnet för att vara helt bombsäkra
+          if (uid.startsWith("en-")) {
+            map[uid.substring(3)] = orgnr;
+          } else {
+            map["en-" + uid] = orgnr;
           }
-        } catch (e) { setStatus("error", "Fel", e.message); }
+        }
+      }
+      return map;
+    }
+
+    // --- XML HJÄLPARE ---
+    function getTagText(doc, tagName) {
+      const els = doc.getElementsByTagNameNS('*', tagName);
+      if (!els.length) return "";
+      // Leta i första hand efter svenska (xml:lang="sv")
+      for (let i = 0; i < els.length; i++) {
+        if (els[i].getAttribute('xml:lang') === 'sv') return els[i].textContent.trim();
+      }
+      return els[0].textContent.trim();
+    }
+
+    // --- UPLOAD LOGIK ---
+    uploadBtn.addEventListener("click", async () => {
+      if (!zipFileInput.files.length) {
+        return setStatus("error", "Fel", "Du måste välja en ZIP-fil först.");
       }
 
-      fetchStatusFromWorker();
+      uploadBtn.disabled = true;
+      clearBtn.disabled = true;
+      setStatus("processing", "Bearbetar...", "Läser in filer lokalt...");
 
-      uploadForm.addEventListener("submit", async function (event) {
-        event.preventDefault();
-        if (!zipInput.files?.[0]) return;
+      try {
+        // 1. Läs in CSV (om vald)
+        const idMap = await parseMappingCsv(csvFileInput.files[0]);
+        const mappedCount = Object.keys(idMap).length;
+        console.log(`Laddade in ${mappedCount} mappnings-regler.`);
+
+        // 2. Läs in ZIP
+        const zipFile = zipFileInput.files[0];
+        const zipData = await zipFile.arrayBuffer();
+        const zip = await JSZip.loadAsync(zipData);
         
-        uploadBtn.disabled = true;
-        clearBtn.disabled = true;
-        setStatus("processing", "Läser ZIP...", "Analyserar filer...");
+        const globalMap = {};
+        const parser = new DOMParser();
 
-        const reader = new FileReader();
-        reader.onload = e => handleZipBuffer(e.target.result);
-        reader.readAsArrayBuffer(zipInput.files[0]);
-      });
+        // 3. Loopa igenom XML
+        for (const [relativePath, fileObj] of Object.entries(zip.files)) {
+          if (fileObj.dir || !relativePath.endsWith(".xml")) continue;
 
-      function parseEntityXml(xmlString) {
-        const results = [];
-        try {
-          const doc = new DOMParser().parseFromString(xmlString, "application/xml");
-          let orgName = "", orgDisplay = "", entityID = "";
-          const allNodes = doc.getElementsByTagName("*");
+          const xmlString = await fileObj.async("string");
+          const doc = parser.parseFromString(xmlString, "application/xml");
 
-          for (let el of allNodes) {
-            const local = el.localName || el.nodeName;
-            if (local === "OrganizationName" && !orgName) orgName = el.textContent.trim();
-            if (local === "OrganizationDisplayName" && !orgDisplay) orgDisplay = el.textContent.trim();
-            if (local === "EntityDescriptor" && !entityID) entityID = el.getAttribute("entityID")?.trim();
-          }
-
-          const scopeOrgs = {};
-          for (let el of allNodes) {
-            if ((el.localName || el.nodeName) === "Scope") {
-              const text = el.textContent.trim();
-              // UPPDATERAD REGEX: 
-              // 1. 10 siffror (\d{10})
-              // 2. Valfri mellanliggande del som slutar på punkt (?:.+\.)?
-              // 3. Avslutas med fedscope.se
-              const match = text.match(/^(\d{10})\.(?:.+\.)?fedscope\.se$/);
-              if (match && match[1]) scopeOrgs[match[1]] = true;
+          // Extrahera rå-ID (Kollar först Scope, sen entityID)
+          let rawId = null;
+          const scopes = Array.from(doc.getElementsByTagNameNS('*', 'Scope'));
+          for (const scope of scopes) {
+            const text = scope.textContent.trim();
+            if (text.endsWith('.fedscope.se')) {
+              rawId = text.replace('.fedscope.se', '');
+              break;
             }
           }
 
-          for (let orgnr in scopeOrgs) {
-            results.push({ orgnr, organizationName: orgName || null, organizationDisplayName: orgDisplay || null, entityID: entityID || null });
-          }
-        } catch (e) {}
-        return results;
-      }
-
-      async function handleZipBuffer(arrayBuffer) {
-        try {
-          const zip = await JSZip.loadAsync(arrayBuffer);
-          const globalMap = {};
-          const files = Object.values(zip.files).filter(f => !f.dir);
-
-          for (let f of files) {
-            const text = await f.async("string");
-            const entities = parseEntityXml(text);
-            entities.forEach(item => {
-              if (!globalMap[item.orgnr]) {
-                globalMap[item.orgnr] = item;
-              } else {
-                if (!globalMap[item.orgnr].organizationName) globalMap[item.orgnr].organizationName = item.organizationName;
-                if (!globalMap[item.orgnr].entityID) globalMap[item.orgnr].entityID = item.entityID;
-              }
-            });
+          if (!rawId) {
+            const entityID = doc.documentElement.getAttribute('entityID');
+            if (entityID) {
+              const parts = entityID.split('/');
+              rawId = parts[parts.length - 1];
+            }
           }
 
-          const items = Object.values(globalMap);
-          if (!items.length) throw new Error("Inga giltiga orgnr hittades (.fedscope.se)");
+          if (rawId) {
+            // -- DET MAGISKA STEGET: Mappning --
+            // Kollar om rawId finns i CSV:n. Om ja, ersätt. Om nej, behåll rawId.
+            const finalOrgnr = idMap[rawId] || rawId;
 
-          setStatus("processing", "Sparar...", `Skickar ${items.length} orgnr till KV.`);
+            const orgName = getTagText(doc, "OrganizationName");
+            const orgDispName = getTagText(doc, "OrganizationDisplayName");
+            const entityID = doc.documentElement.getAttribute('entityID') || "";
 
-          const res = await fetch("/api/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ items })
-          });
-
-          if (!res.ok) throw new Error(await res.text());
-          const data = await res.json();
-          setStatus("ready", "Klar", `Importerade ${data.imported} orgnr.`);
-        } catch (e) {
-          setStatus("error", "Fel", e.message);
-        } finally {
-          uploadBtn.disabled = false;
-          clearBtn.disabled = false;
+            // Deduplicering/Uppdatering
+            if (!globalMap[finalOrgnr]) {
+              globalMap[finalOrgnr] = {
+                orgnr: finalOrgnr,
+                organizationName: orgName,
+                organizationDisplayName: orgDispName,
+                entityID: entityID
+              };
+            } else {
+              const existing = globalMap[finalOrgnr];
+              if (!existing.organizationName && orgName) existing.organizationName = orgName;
+              if (!existing.organizationDisplayName && orgDispName) existing.organizationDisplayName = orgDispName;
+              if (!existing.entityID && entityID) existing.entityID = entityID;
+            }
+          }
         }
-      }
 
-      clearBtn.addEventListener("click", async () => {
-        if (!confirm("Rensa allt?")) return;
-        uploadBtn.disabled = true;
-        clearBtn.disabled = true;
-        setStatus("processing", "Rensar...", "Tar bort data...");
-        try {
-          const res = await fetch("/api/clear", { method: "POST" });
-          const data = await res.json();
-          setStatus("idle", "Idle", `Rensat ${data.deleted} nycklar.`);
-        } catch (e) { setStatus("error", "Fel", e.message); }
+        const items = Object.values(globalMap);
+        if (!items.length) throw new Error("Kunde inte hitta några giltiga entiteter i ZIP-filen.");
+
+        setStatus("processing", "Sparar...", `Skickar ${items.length} organisationer till servern...`);
+
+        // 4. Skicka till Workern
+        const res = await fetch("/api/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items })
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        
+        setStatus("ready", "Klart!", `Importerade ${data.imported} organisationer (uppdelade i ${data.batches} batchar).`);
+      } catch (e) {
+        setStatus("error", "Fel", e.message);
+      } finally {
         uploadBtn.disabled = false;
         clearBtn.disabled = false;
-      });
-    })();
+      }
+    });
+
+    // --- CLEAR LOGIK ---
+    clearBtn.addEventListener("click", async () => {
+      if (!confirm("Är du helt säker på att du vill rensa hela databasen? Allt osparat arbete försvinner.")) return;
+      
+      uploadBtn.disabled = true;
+      clearBtn.disabled = true;
+      setStatus("processing", "Rensar...", "Tar bort all data från Cloudflare KV...");
+
+      try {
+        const res = await fetch("/api/clear", { method: "POST" });
+        if (!res.ok) throw new Error("Kunde inte rensa databasen");
+        const data = await res.json();
+        setStatus("ready", "Rensad", `Databasen är tömd (tog bort ${data.deleted} poster).`);
+      } catch (e) {
+        setStatus("error", "Fel vid rensning", e.message);
+      } finally {
+        uploadBtn.disabled = false;
+        clearBtn.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>
