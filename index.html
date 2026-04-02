@@ -161,17 +161,15 @@
           }
 
           if (rawId) {
-            // -- DET MAGISKA STEGET: Mappning och Tvätt --
-            let finalOrgnr = idMap[rawId] || rawId;
-
-            // NYTT: Tvätta bort suffix (t.ex. .IIS111301) om det som står före punkten är ett orgnr
-            if (finalOrgnr && finalOrgnr.includes('.')) {
-              const parts = finalOrgnr.split('.');
-              // Kollar om första delen består av exakt 10 till 12 siffror
-              if (/^\d{10,12}$/.test(parts[0])) {
-                finalOrgnr = parts[0];
-              }
+            // -- 1. TVÄTTMASKINEN (Körs FÖRST) --
+            // Klipp bort alla fula suffix (t.ex. .IIS111301) oavsett om det är ett orgnr eller UUID
+            if (rawId.includes('.')) {
+              rawId = rawId.split('.')[0];
             }
+
+            // -- 2. DET MAGISKA STEGET: Mappning --
+            // Nu när rawId är rent (t.ex. "en-19b4771f..."), kollar vi om det finns i CSV:n
+            const finalOrgnr = idMap[rawId] || rawId;
 
             const orgName = getTagText(doc, "OrganizationName");
             const orgDispName = getTagText(doc, "OrganizationDisplayName");
