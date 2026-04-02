@@ -161,15 +161,23 @@
           }
 
           if (rawId) {
-            // -- DET MAGISKA STEGET: Mappning --
-            // Kollar om rawId finns i CSV:n. Om ja, ersätt. Om nej, behåll rawId.
-            const finalOrgnr = idMap[rawId] || rawId;
+            // -- DET MAGISKA STEGET: Mappning och Tvätt --
+            let finalOrgnr = idMap[rawId] || rawId;
+
+            // NYTT: Tvätta bort suffix (t.ex. .IIS111301) om det som står före punkten är ett orgnr
+            if (finalOrgnr && finalOrgnr.includes('.')) {
+              const parts = finalOrgnr.split('.');
+              // Kollar om första delen består av exakt 10 till 12 siffror
+              if (/^\d{10,12}$/.test(parts[0])) {
+                finalOrgnr = parts[0];
+              }
+            }
 
             const orgName = getTagText(doc, "OrganizationName");
             const orgDispName = getTagText(doc, "OrganizationDisplayName");
             const entityID = doc.documentElement.getAttribute('entityID') || "";
 
-            // Deduplicering/Uppdatering
+            // Deduplicering/Uppdatering i globalMap
             if (!globalMap[finalOrgnr]) {
               globalMap[finalOrgnr] = {
                 orgnr: finalOrgnr,
